@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Atlas - Cargador Masivo de API</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f4f4f4;
+            color: #333;
+        }
+        .container {
+            max-width: 800px;
+            margin: auto;
+            background: #fff;
+            padding: 20px 30px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            text-align: center;
+            color: #2c3e50;
+        }
+        label {
+            display: block;
+            margin-top: 15px;
+            font-weight: bold;
+        }
+        input, select, textarea {
+            width: 100%;
+            padding: 10px;
+            margin-top: 5px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            box-sizing: border-box;
+            font-family: monospace;
+        }
+        textarea {
+            resize: vertical;
+            height: 200px;
+        }
+        button {
+            width: 100%;
+            padding: 15px;
+            background-color: #2c3e50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            margin-top: 20px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+        }
+        button:hover {
+            background-color: #34495e;
+        }
+        .status, .results {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 4px;
+            background-color: #ecf0f1;
+        }
+        .error {
+            color: #c0392b;
+            font-weight: bold;
+        }
+        #progreso {
+            text-align: center;
+            font-size: 1.2em;
+            font-weight: bold;
+            color: #333;
+        }
+        .lista-errores {
+            margin-top: 10px;
+            padding: 10px;
+            border: 1px solid #e74c3c;
+            background-color: #f9e2e2;
+            border-radius: 4px;
+        }
+        .tooltip-container {
+            position: relative;
+            display: inline-block;
+        }
+        .tooltip-container .tooltiptext {
+            visibility: hidden;
+            width: 400px;
+            background-color: #555;
+            color: #fff;
+            text-align: left;
+            border-radius: 6px;
+            padding: 10px;
+            position: absolute;
+            z-index: 1;
+            bottom: 125%;
+            left: 50%;
+            margin-left: -200px;
+            opacity: 0;
+            transition: opacity 0.3s;
+            font-family: Arial, sans-serif;
+            font-size: 14px;
+            white-space: pre-wrap;
+        }
+        .tooltip-container .tooltiptext::after {
+            content: "";
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            margin-left: -5px;
+            border-width: 5px;
+            border-style: solid;
+            border-color: #555 transparent transparent transparent;
+        }
+        .tooltip-container:hover .tooltiptext {
+            visibility: visible;
+            opacity: 1;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Atlas - Cargador Masivo</h1>
+
+    <form id="formularioCarga">
+        <label for="cargaType">Tipo de Carga Masiva:</label>
+        <select id="cargaType">
+            <option value="seguimientos">Seguimientos</option>
+            <option value="usuarios">Usuarios</option>
+            <option value="documentos">Documentos</option>
+            <option value="grupos">Grupos de Ventas</option>
+            <option value="fases">Fases</option>
+            <option value="origenes">Orígenes</option>
+            <option value="tiposSeguimiento">Tipos de Seguimiento</option>
+            <option value="motivosDescarte">Motivos de Descarte</option>
+            <option value="pisosVenta">Pisos de Venta</option>
+            <option value="lineas">Líneas</option>
+            <option value="marcas">Marcas</option>
+        </select>
+        
+        <label for="tokenType">Tipo de Token:</label>
+        <select id="tokenType">
+            <option value="crm">CRM Token</option>
+            <option value="sesion">Sesion Token</option>
+        </select>
+        
+        <label for="token" id="tokenLabel">Token del CRM (Token de Integración):</label>
+        <input type="text" id="token" placeholder="Ej: P2513DC7FA4..." required>
+
+        <label for="tkSeguimiento">Token de Seguimiento (Opcional):</label>
+        <input type="text" id="tkSeguimiento" placeholder="Ej: SEGC-D066B655-31DD...">
+
+        <label for="endpoint">URL del Endpoint (usa {{tkProspecto}} como marcador):</label>
+        <input type="url" id="endpoint" placeholder="Ej: https://api.upnify.com/v4/prospectos/{{tkProspecto}}/seguimientos" required>
+        
+        <label for="metodo">Método HTTP:</label>
+        <select id="metodo">
+            <option value="POST">POST</option>
+            <option value="PUT">PUT</option>
+            <option value="PATCH">PATCH</option>
+            <option value="DELETE">DELETE</option>
+        </select>
+
+        <label for="jsonBody">
+            JSON de Carga (Array de Objetos):
+            <div class="tooltip-container">
+                <span class="info-icon">ⓘ</span>
+                <span class="tooltiptext" id="json-example-tooltip"></span>
+            </div>
+        </label>
+        <textarea id="jsonBody" placeholder="[{ 'tkProspecto': '...', 'seguimiento': '...' }, { ... }]"></textarea>
+
+        <button type="submit" id="btnCargar">Iniciar Carga Masiva</button>
+    </form>
+    
+    <div class="status">
+        <p id="progreso">Esperando carga...</p>
+    </div>
+    
+    <div class="results" style="display: none;">
+        <p><span id="totalItems"></span></p>
+        <p>Ítems Fallidos: <span id="itemsFallidosCount" class="error">0</span></p>
+        <div id="listaErrores"></div>
+    </div>
+</div>
+
+<script>
+    document.getElementById('formularioCarga').addEventListener('submit', function(e) {
+        e.preventDefault();
+        iniciarCargaMasiva();
+    });
+
+    document.getElementById('tokenType').addEventListener('change', function() {
+        const tokenType = this.value;
+        const tokenLabel = document.getElementById('tokenLabel');
+        const tokenInput = document.getElementById('token');
+
+        if (tokenType === 'crm') {
+            tokenLabel.innerText = 'Token del CRM (Token de Integración):';
+            tokenInput.placeholder = 'Ej: P2513DC7FA4...';
+        } else {
+            tokenLabel.innerText = 'Token de Sesión:';
+            tokenInput.placeholder = 'Ej: P250DCyMEZGjQtR...';
+        }
+    });
+
+    // Endpoints y ejemplos JSON para cada tipo de carga
+    const endpoints = {
+        'seguimientos': 'https://api.upnify.com/v4/prospectos/{{tkProspecto}}/seguimientos',
+        'usuarios': 'https://api.upnify.com/v4/usuarios/crear-usuario',
+        'documentos': 'https://api.upnify.com/v4/prospectos/{{tkProspecto}}/documentos',
+        'grupos': 'https://api.upnify.com/v4/grupos/crear-grupo-venta',
+        'fases': 'https://api.upnify.com/v4/fases/crear-fase-proceso-comercial',
+        'origenes': 'https://api.upnify.com/v4/origenes/crear-origen',
+        'tiposSeguimiento': 'https://api.upnify.com/v4/tipos-seguimiento/crear-tipo-seguimiento',
+        'motivosDescarte': 'https://api.upnify.com/v4/motivos-descarte/crear-motivo-descarte',
+        'pisosVenta': 'https://api.upnify.com/v4/pisos-venta/crear-piso-venta',
+        'lineas': 'https://api.upnify.com/v4/lineas/crear-linea',
+        'marcas': 'https://api.upnify.com/v4/marcas/crear-marca'
+    };
+
+    const jsonExamples = {
+        'seguimientos': `[{
+  "tkProspecto": "P-0A000000-0000-0000-0000-000000000001",
+  "seguimiento": "Comentario de seguimiento de prueba"
+},
+{
+  "tkProspecto": "P-0A000000-0000-0000-0000-000000000002",
+  "seguimiento": "Otro seguimiento de prueba"
+}]`,
+        'usuarios': `[{
+  "nombre": "Juan",
+  "apellidos": "Perez",
+  "correo": "juan.perez@ejemplo.com",
+  "contrasena": "password123",
+  "esActivo": true
+},
+{
+  "nombre": "Maria",
+  "apellidos": "Lopez",
+  "correo": "maria.lopez@ejemplo.com",
+  "contrasena": "password456",
+  "esActivo": true
+}]`,
+        'documentos': `[{
+  "tkProspecto": "P-0A000000-0000-0000-0000-000000000001",
+  "nombre": "Documento-1.pdf",
+  "archivo": "Base64 del archivo"
+},
+{
+  "tkProspecto": "P-0A000000-0000-0000-0000-000000000002",
+  "nombre": "Documento-2.jpg",
+  "archivo": "Base64 del archivo"
+}]`,
+        'grupos': `[{
+  "nombre": "Grupo de Ventas México",
+  "esActivo": true
+},
+{
+  "nombre": "Grupo de Ventas Colombia",
+  "esActivo": true
+}]`,
+        'fases': `[{
+  "nombre": "Fase de Contacto",
+  "esActivo": true
+},
+{
+  "nombre": "Fase de Cierre",
+  "esActivo": true
+}]`,
+        'origenes': `[{
+  "nombre": "Sitio Web",
+  "esActivo": true
+},
+{
+  "nombre": "Referido",
+  "esActivo": true
+}]`,
+        'tiposSeguimiento': `[{
+  "nombre": "Llamada",
+  "esActivo": true
+},
+{
+  "nombre": "Correo Electrónico",
+  "esActivo": true
+}]`,
+        'motivosDescarte': `[{
+  "nombre": "No le interesa",
+  "esActivo": true
+},
+{
+  "nombre": "Precio alto",
+  "esActivo": true
+}]`,
+        'pisosVenta': `[{
+  "nombre": "Piso 1",
+  "esActivo": true
+},
+{
+  "nombre": "Piso 2",
+  "esActivo": true
+}]`,
+        'lineas': `[{
+  "nombre": "Línea de Negocio 1",
+  "esActivo": true
+},
+{
+  "nombre": "Línea de Negocio 2",
+  "esActivo": true
+}]`,
+        'marcas': `[{
+  "nombre": "Marca A",
+  "esActivo": true
+},
+{
+  "nombre": "Marca B",
+  "esActivo": true
+}]`
+    };
+
+    document.getElementById('cargaType').addEventListener('change', function() {
+        const tipoSeleccionado = this.value;
+        document.getElementById('endpoint').value = endpoints[tipoSeleccionado] || '';
+        document.getElementById('json-example-tooltip').innerText = jsonExamples[tipoSeleccionado] || 'No hay ejemplo disponible.';
+        
+        // Ocultar/mostrar el campo tkSeguimiento según el tipo de carga
+        const tkSeguimientoField = document.getElementById('tkSeguimiento');
+        const tkSeguimientoLabel = document.querySelector('label[for="tkSeguimiento"]');
+        if (tipoSeleccionado === 'seguimientos') {
+            tkSeguimientoField.style.display = 'block';
+            tkSeguimientoLabel.style.display = 'block';
+        } else {
+            tkSeguimientoField.style.display = 'none';
+            tkSeguimientoLabel.style.display = 'none';
+        }
+    });
+
+    // Lógica para inicializar el tooltip al cargar la página
+    document.addEventListener('DOMContentLoaded', function() {
+        const initialType = document.getElementById('cargaType').value;
+        document.getElementById('json-example-tooltip').innerText = jsonExamples[initialType] || 'No hay ejemplo disponible.';
+    });
+
+    async function iniciarCargaMasiva() {
+        const btnCargar = document.getElementById('btnCargar');
+        btnCargar.disabled = true;
+        btnCargar.innerText = 'Cargando...';
+
+        document.getElementById('progreso').innerText = 'Iniciando carga...';
+        document.getElementById('itemsFallidosCount').innerText = '0';
+        document.getElementById('listaErrores').innerHTML = '';
+        document.querySelector('.results').style.display = 'none';
+
+        const tokenType = document.getElementById('tokenType').value;
+        const tokenInput = document.getElementById('token').value;
+        const tkSeguimientoInput = document.getElementById('tkSeguimiento').value;
+        const endpointBase = document.getElementById('endpoint').value;
+        const metodo = document.getElementById('metodo').value;
+        const jsonInput = document.getElementById('jsonBody').value;
+
+        let tokenParaPeticiones = '';
+        if (tokenType === 'crm') {
+            tokenParaPeticiones = await obtenerSesionToken(tokenInput);
+            if (!tokenParaPeticiones) {
+                restablecerFormulario();
+                return;
+            }
+        } else {
+            tokenParaPeticiones = tokenInput;
+        }
+
+        let datos;
+        try {
+            datos = JSON.parse(jsonInput);
+            if (!Array.isArray(datos)) {
+                alert('El JSON debe ser un array de objetos.');
+                restablecerFormulario();
+                return;
+            }
+        } catch (error) {
+            alert('Error al parsear el JSON. Asegúrate de que el formato sea válido.');
+            restablecerFormulario();
+            return;
+        }
+
+        const tamanoLote = 50;
+        const totalItems = datos.length;
+        let itemsProcesados = 0;
+        const itemsFallidos = [];
+
+        for (let i = 0; i < totalItems; i += tamanoLote) {
+            const lote = datos.slice(i, i + tamanoLote);
+            const promesasLote = lote.map(item => enviarPeticion(endpointBase, tokenParaPeticiones, metodo, item, itemsFallidos, tkSeguimientoInput));
+
+            try {
+                await Promise.all(promesasLote);
+            } catch (error) {
+                console.error("Error en el lote: ", error);
+            }
+
+            itemsProcesados += lote.length;
+            actualizarProgreso(itemsProcesados, totalItems);
+        }
+
+        mostrarResultadoFinal(totalItems, itemsFallidos);
+        restablecerFormulario();
+    }
+
+    async function obtenerSesionToken(crmToken) {
+        document.getElementById('progreso').innerText = 'Obteniendo token de sesión...';
+        try {
+            const respuesta = await fetch('https://api.upnify.com/integraciones/sesion', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Token': crmToken
+                }
+            });
+
+            const data = await respuesta.json();
+            if (!respuesta.ok || data.code !== 0) {
+                const errorMsg = data.details || data.msg || 'Error desconocido al obtener el token de sesión.';
+                alert(`Error al obtener el token de sesión: ${errorMsg}`);
+                return null;
+            }
+            return data.token;
+        } catch (error) {
+            alert(`Error de red al obtener el token de sesión: ${error.message}`);
+            return null;
+        }
+    }
+
+    async function enviarPeticion(endpointBase, sesionToken, metodo, item, itemsFallidos, tkSeguimiento) {
+        const bodyItem = { ...item };
+        let endpointFinal = endpointBase;
+
+        // Lógica para reemplazar marcadores dinámicos y ocultar/mostrar campos
+        if (bodyItem.tkProspecto) {
+            endpointFinal = endpointBase.replace('{{tkProspecto}}', bodyItem.tkProspecto);
+            delete bodyItem.tkProspecto;
+        }
+        
+        if (bodyItem.tkSeguimiento) {
+            endpointFinal = endpointBase.replace('{{tkSeguimiento}}', bodyItem.tkSeguimiento);
+            delete bodyItem.tkSeguimiento;
+        }
+
+        if (tkSeguimiento) {
+            bodyItem.tkSeguimiento = tkSeguimiento;
+        }
+
+        try {
+            const respuesta = await fetch(endpointFinal, {
+                method: metodo,
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Token': sesionToken 
+                },
+                body: JSON.stringify(bodyItem)
+            });
+
+            if (!respuesta.ok) {
+                const errorTexto = await respuesta.text();
+                itemsFallidos.push({
+                    item,
+                    status: respuesta.status,
+                    statusText: respuesta.statusText,
+                    errorResponse: errorTexto
+                });
+            }
+        } catch (error) {
+            itemsFallidos.push({
+                item,
+                error: error.message
+            });
+        }
+    }
+
+    function actualizarProgreso(procesados, total) {
+        const porcentaje = Math.round((procesados / total) * 100);
+        document.getElementById('progreso').innerText = `Progreso: ${procesados} de ${total} (${porcentaje}%)`;
+    }
+
+    function mostrarResultadoFinal(total, fallidos) {
+        document.getElementById('totalItems').innerText = `Total de ítems procesados: ${total}`;
+        document.getElementById('itemsFallidosCount').innerText = fallidos.length;
+        document.querySelector('.results').style.display = 'block';
+
+        if (fallidos.length > 0) {
+            const listaErroresDiv = document.getElementById('listaErrores');
+            listaErroresDiv.innerHTML = '<p class="error">Detalles de los ítems fallidos:</p>';
+            
+            fallidos.forEach(falla => {
+                const div = document.createElement('div');
+                div.className = 'lista-errores';
+                div.innerHTML = `
+                    <p><strong>Ítem:</strong> ${JSON.stringify(falla.item)}</p>
+                    ${falla.status ? `<p><strong>Estado:</strong> ${falla.status} ${falla.statusText}</p>` : ''}
+                    ${falla.error ? `<p><strong>Error de Red:</strong> ${falla.error}</p>` : ''}
+                    ${falla.errorResponse ? `<p><strong>Respuesta de la API:</strong> ${falla.errorResponse}</p>` : ''}
+                `;
+                listaErroresDiv.appendChild(div);
+            });
+        }
+    }
+
+    function restablecerFormulario() {
+        const btnCargar = document.getElementById('btnCargar');
+        btnCargar.disabled = false;
+        btnCargar.innerText = 'Iniciar Carga Masiva';
+    }
+</script>
+
+</body>
+</html>
