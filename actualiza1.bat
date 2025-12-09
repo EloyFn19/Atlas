@@ -2,7 +2,7 @@
 rem === Variables de Configuracion ===
 set REPO_NAME=Atlas
 set DEFAULT_COMMIT_MESSAGE=Actualizacion de Atlas
-set GIT_BRANCH=main
+set GIT_BRANCH=master
 set PAUSE_DURATION=5
 
 rem === Encabezado ===
