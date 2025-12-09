@@ -37,10 +37,21 @@
             box-sizing: border-box;
             font-family: monospace;
         }
-        textarea {
-            resize: vertical;
-            height: 200px;
+        textarea#jsonExample { 
+            height: auto; 
+            min-height: 100px; 
+            background-color: #eee;
+            border: 1px dashed #aaa;
+            color: #000;
+            font-size: 14px;
+            resize: none; 
+            cursor: pointer; 
         }
+        textarea#jsonBody {
+             font-size: 14px;
+             height: 200px;
+        }
+
         button {
             width: 100%;
             padding: 15px;
@@ -79,42 +90,9 @@
             background-color: #f9e2e2;
             border-radius: 4px;
         }
-        .tooltip-container {
-            position: relative;
-            display: inline-block;
-        }
         .tooltip-container .tooltiptext {
             visibility: hidden;
-            width: 400px;
-            background-color: #555;
-            color: #fff;
-            text-align: left;
-            border-radius: 6px;
-            padding: 10px;
-            position: absolute;
-            z-index: 1;
-            bottom: 125%;
-            left: 50%;
-            margin-left: -200px;
-            opacity: 0;
-            transition: opacity 0.3s;
-            font-family: Arial, sans-serif;
-            font-size: 14px;
-            white-space: pre-wrap;
-        }
-        .tooltip-container .tooltiptext::after {
-            content: "";
-            position: absolute;
-            top: 100%;
-            left: 50%;
-            margin-left: -5px;
-            border-width: 5px;
-            border-style: solid;
-            border-color: #555 transparent transparent transparent;
-        }
-        .tooltip-container:hover .tooltiptext {
-            visibility: visible;
-            opacity: 1;
+            display: none;
         }
     </style>
 </head>
@@ -137,6 +115,7 @@
             <option value="pisosVenta">Pisos de Venta</option>
             <option value="lineas">Líneas</option>
             <option value="marcas">Marcas</option>
+            <option value="etiquetas">Etiquetas</option>
         </select>
         
         <label for="tokenType">Tipo de Token:</label>
@@ -169,6 +148,10 @@
                 <span class="tooltiptext" id="json-example-tooltip"></span>
             </div>
         </label>
+        
+        <label>Ejemplo JSON (Clic para Copiar):</label>
+        <textarea id="jsonExample" readonly></textarea>
+
         <textarea id="jsonBody" placeholder="[{ 'tkProspecto': '...', 'seguimiento': '...' }, { ... }]"></textarea>
 
         <button type="submit" id="btnCargar">Iniciar Carga Masiva</button>
@@ -217,129 +200,166 @@
         'motivosDescarte': 'https://api.upnify.com/v4/motivos-descarte/crear-motivo-descarte',
         'pisosVenta': 'https://api.upnify.com/v4/pisos-venta/crear-piso-venta',
         'lineas': 'https://api.upnify.com/v4/lineas/crear-linea',
-        'marcas': 'https://api.upnify.com/v4/marcas/crear-marca'
+        'marcas': 'https://api.upnify.com/v4/marcas/crear-marca',
+        'etiquetas': 'https://api.upnify.com/v4/prospectos/{{tkProspecto}}/etiquetas' 
     };
 
     const jsonExamples = {
-        'seguimientos': `[{
-  "tkProspecto": "P-0A000000-0000-0000-0000-000000000001",
-  "seguimiento": "Comentario de seguimiento de prueba"
-},
-{
-  "tkProspecto": "P-0A000000-0000-0000-0000-000000000002",
-  "seguimiento": "Otro seguimiento de prueba"
-}]`,
-        'usuarios': `[{
-  "nombre": "Juan",
-  "apellidos": "Perez",
-  "correo": "juan.perez@ejemplo.com",
-  "contrasena": "password123",
-  "esActivo": true
-},
-{
-  "nombre": "Maria",
-  "apellidos": "Lopez",
-  "correo": "maria.lopez@ejemplo.com",
-  "contrasena": "password456",
-  "esActivo": true
-}]`,
-        'documentos': `[{
-  "tkProspecto": "P-0A000000-0000-0000-0000-000000000001",
-  "nombre": "Documento-1.pdf",
-  "archivo": "Base64 del archivo"
-},
-{
-  "tkProspecto": "P-0A000000-0000-0000-0000-000000000002",
-  "nombre": "Documento-2.jpg",
-  "archivo": "Base64 del archivo"
-}]`,
-        'grupos': `[{
-  "nombre": "Grupo de Ventas México",
-  "esActivo": true
-},
-{
-  "nombre": "Grupo de Ventas Colombia",
-  "esActivo": true
-}]`,
-        'fases': `[{
-  "nombre": "Fase de Contacto",
-  "esActivo": true
-},
-{
-  "nombre": "Fase de Cierre",
-  "esActivo": true
-}]`,
-        'origenes': `[{
-  "nombre": "Sitio Web",
-  "esActivo": true
-},
-{
-  "nombre": "Referido",
-  "esActivo": true
-}]`,
-        'tiposSeguimiento': `[{
-  "nombre": "Llamada",
-  "esActivo": true
-},
-{
-  "nombre": "Correo Electrónico",
-  "esActivo": true
-}]`,
-        'motivosDescarte': `[{
-  "nombre": "No le interesa",
-  "esActivo": true
-},
-{
-  "nombre": "Precio alto",
-  "esActivo": true
-}]`,
-        'pisosVenta': `[{
-  "nombre": "Piso 1",
-  "esActivo": true
-},
-{
-  "nombre": "Piso 2",
-  "esActivo": true
-}]`,
-        'lineas': `[{
-  "nombre": "Línea de Negocio 1",
-  "esActivo": true
-},
-{
-  "nombre": "Línea de Negocio 2",
-  "esActivo": true
-}]`,
-        'marcas': `[{
-  "nombre": "Marca A",
-  "esActivo": true
-},
-{
-  "nombre": "Marca B",
-  "esActivo": true
-}]`
+        'seguimientos': `[
+    {
+        "tkProspecto": "P-0A000000-0000-0000-0000-000000000001",
+        "seguimiento": "Comentario de prueba",
+        "tkTipoSeguimiento": "TSEG-XXXXX" 
+    },
+    {
+        "tkProspecto": "P-0A000000-0000-0000-0000-000000000002",
+        "seguimiento": "Otro seguimiento de prueba"
+    }
+]`,
+        'usuarios': `[
+    {
+        "nombre": "Juan",
+        "apellidos": "Perez",
+        "correo": "juan.perez@ejemplo.com",
+        "contrasena": "password123",
+        "esActivo": true
+    }
+]`,
+        'documentos': `[
+    {
+        "tkProspecto": "P-0A000000-0000-0000-0000-000000000001",
+        "nombre": "Documento-1.pdf",
+        "archivo": "Base64 del archivo..."
+    }
+]`,
+        'grupos': `[
+    {
+        "nombre": "Grupo de Ventas México",
+        "esActivo": true
+    }
+]`,
+        'fases': `[
+    {
+        "nombre": "Fase de Contacto",
+        "esActivo": true
+    }
+]`,
+        'origenes': `[
+    {
+        "nombre": "Sitio Web",
+        "esActivo": true
+    }
+]`,
+        'tiposSeguimiento': `[
+    {
+        "nombre": "Llamada",
+        "esActivo": true
+    }
+]`,
+        'motivosDescarte': `[
+    {
+        "nombre": "No le interesa",
+        "esActivo": true
+    }
+]`,
+        'pisosVenta': `[
+    {
+        "nombre": "Piso 1",
+        "esActivo": true
+    }
+]`,
+        'lineas': `[
+    {
+        "nombre": "Línea de Negocio 1",
+        "esActivo": true
+    }
+]`,
+        'marcas': `[
+    {
+        "nombre": "Marca A",
+        "esActivo": true
+    }
+]`,
+        // ¡EJEMPLO DE ETIQUETAS CORREGIDO PARA USAR CADENA SEPARADA POR COMAS!
+        'etiquetas': `[
+    {
+        "tkProspecto": "P-0A000000-0000-0000-0000-000000000001",
+        "etiquetas": "ETIQ-CA9810BB-...,ETIQ-DF451C6B-...,ETIQ-5233CA3D-...",
+        "search_terms": ""
+    },
+    {
+        "tkProspecto": "P-0A000000-0000-0000-0000-000000000002",
+        "etiquetas": "ETIQ-OTRA-ETIQUETA",
+        "search_terms": ""
+    }
+]`
     };
 
-    document.getElementById('cargaType').addEventListener('change', function() {
-        const tipoSeleccionado = this.value;
-        document.getElementById('endpoint').value = endpoints[tipoSeleccionado] || '';
-        document.getElementById('json-example-tooltip').innerText = jsonExamples[tipoSeleccionado] || 'No hay ejemplo disponible.';
-        
-        // Ocultar/mostrar el campo tkSeguimiento según el tipo de carga
+    function actualizarCamposDeCarga(tipoSeleccionado) {
+        const endpointInput = document.getElementById('endpoint');
+        const metodoInput = document.getElementById('metodo');
         const tkSeguimientoField = document.getElementById('tkSeguimiento');
         const tkSeguimientoLabel = document.querySelector('label[for="tkSeguimiento"]');
+        
+        const jsonExampleText = jsonExamples[tipoSeleccionado] || '[]';
+        
+        // 1. Actualizar el campo de ejemplo copiable y el tooltip (aunque oculto)
+        document.getElementById('jsonExample').value = jsonExampleText;
+        document.getElementById('json-example-tooltip').innerText = jsonExampleText;
+
+        // 2. Actualizar el placeholder del campo de carga principal
+        // Intentamos parsear el primer objeto del array para el placeholder
+        let placeholderText = "";
+        try {
+            const parsedArray = JSON.parse(jsonExampleText);
+            if (parsedArray.length > 0) {
+                let placeholderBase = parsedArray[0];
+                // Creamos un placeholder que muestre el primer objeto y un objeto vacío
+                placeholderText = JSON.stringify([placeholderBase, {}], null, 4);
+                // Ajuste visual para el placeholder (opcional)
+                placeholderText = placeholderText.substring(1, placeholderText.length - 1).trim().replace(/\n {4}/g, '\n');
+            } else {
+                placeholderText = "[{ 'tkProspecto': '...', 'datos': '...' }]";
+            }
+        } catch (e) {
+            placeholderText = "[{ 'tkProspecto': '...', 'Error': 'Formato de ejemplo inválido' }]";
+        }
+        document.getElementById('jsonBody').placeholder = placeholderText;
+
+
+        // 3. Configurar endpoint, método y campos opcionales
+        endpointInput.value = endpoints[tipoSeleccionado] || '';
+        
+        tkSeguimientoField.style.display = 'none';
+        tkSeguimientoLabel.style.display = 'none';
+
         if (tipoSeleccionado === 'seguimientos') {
             tkSeguimientoField.style.display = 'block';
             tkSeguimientoLabel.style.display = 'block';
+            metodoInput.value = 'POST';
+        } else if (tipoSeleccionado === 'etiquetas') {
+            metodoInput.value = 'PUT'; // Usar PUT para asignar etiquetas
+            endpointInput.placeholder = endpoints['etiquetas'].replace('{{tkProspecto}}', 'P-...');
         } else {
-            tkSeguimientoField.style.display = 'none';
-            tkSeguimientoLabel.style.display = 'none';
+            metodoInput.value = 'POST';
         }
-    });
+    }
 
-    // Lógica para inicializar el tooltip al cargar la página
+    document.getElementById('cargaType').addEventListener('change', function() {
+        actualizarCamposDeCarga(this.value);
+    });
+    
+    // Lógica para inicializar al cargar la página
     document.addEventListener('DOMContentLoaded', function() {
         const initialType = document.getElementById('cargaType').value;
-        document.getElementById('json-example-tooltip').innerText = jsonExamples[initialType] || 'No hay ejemplo disponible.';
+        actualizarCamposDeCarga(initialType);
+    });
+
+    // Lógica para COPIAR el JSON de ejemplo al hacer click
+    document.getElementById('jsonExample').addEventListener('click', function() {
+        this.select();
+        document.execCommand('copy');
+        alert('¡Ejemplo JSON copiado al portapapeles!');
     });
 
     async function iniciarCargaMasiva() {
@@ -391,7 +411,7 @@
 
         for (let i = 0; i < totalItems; i += tamanoLote) {
             const lote = datos.slice(i, i + tamanoLote);
-            const promesasLote = lote.map(item => enviarPeticion(endpointBase, tokenParaPeticiones, metodo, item, itemsFallidos, tkSeguimientoInput));
+            const promesasLote = lote.map(item => enviarPeticion(endpointBase, tokenParaPeticiones, metodo, item, itemsFallidos, tkSeguimientoInput)); 
 
             try {
                 await Promise.all(promesasLote);
@@ -434,18 +454,16 @@
     async function enviarPeticion(endpointBase, sesionToken, metodo, item, itemsFallidos, tkSeguimiento) {
         const bodyItem = { ...item };
         let endpointFinal = endpointBase;
+        let responseJson = null;
+        let responseText = null;
 
-        // Lógica para reemplazar marcadores dinámicos y ocultar/mostrar campos
+        // 1. Reemplazar {{tkProspecto}} si existe y eliminarlo del body
         if (bodyItem.tkProspecto) {
             endpointFinal = endpointBase.replace('{{tkProspecto}}', bodyItem.tkProspecto);
             delete bodyItem.tkProspecto;
         }
         
-        if (bodyItem.tkSeguimiento) {
-            endpointFinal = endpointBase.replace('{{tkSeguimiento}}', bodyItem.tkSeguimiento);
-            delete bodyItem.tkSeguimiento;
-        }
-
+        // 2. Lógica para el token de seguimiento opcional (si se aplica)
         if (tkSeguimiento) {
             bodyItem.tkSeguimiento = tkSeguimiento;
         }
@@ -457,22 +475,54 @@
                     'Content-Type': 'application/json',
                     'Token': sesionToken 
                 },
-                body: JSON.stringify(bodyItem)
+                body: ['GET', 'DELETE'].includes(metodo.toUpperCase()) ? null : JSON.stringify(bodyItem)
             });
 
+            // Leer la respuesta como texto primero para capturar errores de parseo
+            responseText = await respuesta.text();
+
+            // Intentar parsear el JSON si el texto no está vacío
+            if (responseText) {
+                try {
+                    responseJson = JSON.parse(responseText);
+                } catch (e) {
+                    // Si falla el parseo, responseJson seguirá siendo null y responseText contendrá la respuesta cruda.
+                }
+            }
+
+
+            // LÓGICA DE DETECCIÓN DE ERRORES (Punto clave)
+            let esFallido = false;
+            let errorMsg = "";
+
             if (!respuesta.ok) {
-                const errorTexto = await respuesta.text();
+                // Caso A: Código de estado HTTP no 2xx (400, 500, etc.)
+                esFallido = true;
+                errorMsg = responseText || respuesta.statusText;
+            } else if (responseJson && (responseJson.code !== undefined && responseJson.code !== 0)) {
+                // Caso B: Código de estado 200 OK, pero el cuerpo indica un error (Ej: code: 1, msg: "Error de validación")
+                esFallido = true;
+                errorMsg = responseJson.details || responseJson.msg || responseText;
+            } else if (responseJson && responseJson.success === false) {
+                 // Caso C: Código de estado 200 OK, pero el cuerpo tiene { success: false }
+                esFallido = true;
+                errorMsg = responseJson.details || responseJson.msg || responseText;
+            }
+            
+            if (esFallido) {
                 itemsFallidos.push({
-                    item,
+                    item: item,
                     status: respuesta.status,
                     statusText: respuesta.statusText,
-                    errorResponse: errorTexto
+                    errorResponse: errorMsg
                 });
             }
+
         } catch (error) {
             itemsFallidos.push({
-                item,
-                error: error.message
+                item: item,
+                error: error.message,
+                status: 'Error de Red'
             });
         }
     }
@@ -496,7 +546,7 @@
                 div.className = 'lista-errores';
                 div.innerHTML = `
                     <p><strong>Ítem:</strong> ${JSON.stringify(falla.item)}</p>
-                    ${falla.status ? `<p><strong>Estado:</strong> ${falla.status} ${falla.statusText}</p>` : ''}
+                    ${falla.status ? `<p><strong>Estado:</strong> ${falla.status} ${falla.statusText || ''}</p>` : ''}
                     ${falla.error ? `<p><strong>Error de Red:</strong> ${falla.error}</p>` : ''}
                     ${falla.errorResponse ? `<p><strong>Respuesta de la API:</strong> ${falla.errorResponse}</p>` : ''}
                 `;
